@@ -90,21 +90,32 @@ X_test_rf = pd.DataFrame(
     columns=X_test.columns,
     index=X_test.index
 )
-# tuned to prevent overfitting
-rf = RandomForestRegressor(
-    n_estimators=200,
-    max_depth=5,
-    min_samples_split=40,
-    min_samples_leaf=15,
-    max_features='sqrt',
-    random_state=42,
-    n_jobs=-1
+# gridsearch 
+rf_params = {
+    'n_estimators': [100, 150, 200, 250],
+    'max_depth': [3, 4, 5, 6, 7],
+    'min_samples_split': [20, 30, 40, 50],
+    'min_samples_leaf': [10, 15, 20, 25],
+    'max_features': ['sqrt']
+}
+
+rf_grid = GridSearchCV(
+    RandomForestRegressor(random_state=42, n_jobs=-1),
+    rf_params,
+    cv=5,
+    scoring='neg_mean_absolute_error',
+    n_jobs=-1,
+    verbose=1  
 )
-rf.fit(X_train_rf, y_train)
+rf_grid.fit(X_train_rf, y_train)
+print(f"\nbest parameters: {rf_grid.best_params_}")
+print(f"CV MAE: {-rf_grid.best_score_:.4f}")
 models['Random Forest'] = {
-    'model': rf,
+    'model': rf_grid.best_estimator_,
     'X_train': X_train_rf,
-    'X_test': X_test_rf
+    'X_test': X_test_rf,
+    'best_params': rf_grid.best_params_,
+    'cv_score': -rf_grid.best_score_
 }
 print("\nrandom forest done")
 
