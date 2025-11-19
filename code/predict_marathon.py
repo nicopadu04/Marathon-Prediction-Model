@@ -321,34 +321,6 @@ else:
     print(f"basic, you provided only half marathon data")
     print(f"consider adding 5K or 10K times for better accuracy")
 
-# save prediction
-save = input("would you like to save this prediction? (y/n): ").strip().lower()
-if save == 'y':
-    timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-    filename = f"my_prediction_{timestamp}.csv"
-    result_df = pd.DataFrame([{
-        'timestamp': timestamp,
-        'hm_time_min': hm_minutes,
-        'predicted_marathon_time_h': pred_h,
-        'predicted_marathon_time_m': pred_m,
-        'predicted_marathon_time_s': pred_s,
-        'predicted_slowdown': predicted_slowdown,
-        'predicted_pace_minkm': predicted_marathon_pace_minkm,
-        'age': age,
-        'sex': sex_input,
-        'bmi': bmi,
-        'typical_km': typical_km,
-        'max_km': max_km,
-        'has_5k': has_5k,
-        'has_10k': has_10k,
-        'confidence_lower_h': lower_h,
-        'confidence_lower_m': lower_m,
-        'confidence_upper_h': upper_h,
-        'confidence_upper_m': upper_m
-    }])
-    result_df.to_csv(filename, index=False)
-    print(f"\nprediction saved: {filename}")
-
 # complete
 print("\nPREDICTION COMPLETE!")
 print(f"\ngood luck with your marathon!")
