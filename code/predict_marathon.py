@@ -7,9 +7,9 @@ from datetime import datetime
 print("3. PREDICTOR")
 
 # load model
-with open('best_model.pkl', 'rb') as f:
+with open('best_model/best_model.pkl', 'rb') as f:
     model = pickle.load(f)
-with open('model_info.pkl', 'rb') as f:
+with open('best_model/model_info.pkl', 'rb') as f:
     model_info = pickle.load(f)
 print(f"\nmodel used: {model_info['model_name']}")
 
