@@ -15,4 +15,4 @@ Machine learning system that predicts marathon finish times from half-marathon p
    - `predict_marathon.py`
 
 # results
-The Random Forest model achieves R² = 0.1066 and MAE = 8.02 minutes, outperforming Linear and Ridge Regression. Model performs better for male runners, faster paces, and higher training volumes.
+The Random Forest model achieves R² = 0.1118 and MAE = 8.03 minutes, outperforming Linear and Ridge Regression. Model performs better for male runners, faster paces, and higher training volumes.
