@@ -5,14 +5,12 @@ Machine learning system that predicts marathon finish times from half-marathon p
 - `code/` --> python scripts: `prepare_data.py`, `train_model.py`, `predict_marathon.py`
 - `data/` --> raw dataset and processed train/test splits
 - `best_model/` --> trained random forest model
-- `results/` --> visualizations and feature importance plots
+- `results/` --> best model, visualizations and feature importance plots
+- `main.py` --> main script to run
 
 # run
 - install dependencies: `pip install -r requirements.txt`
-- run scripts in order from `code/`:
-   - `prepare_data.py`
-   - `train_model.py`
-   - `predict_marathon.py`
+- run main script: `main.py`
 
 # results
 The Random Forest model achieves R² = 0.1118 and MAE = 8.03 minutes, outperforming Linear and Ridge Regression. Model performs better for male runners, faster paces, and higher training volumes.

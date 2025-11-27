@@ -21,6 +21,17 @@ test_info = pd.read_csv('data/processed_data/test_info.csv')
 with open('data/processed_data/feature_columns.txt', 'r') as f:
     feature_columns = [line.strip() for line in f.readlines()]
 
+# riegel baseline
+print("\nRIEGEL BASELINE")
+D_hm = 21.0975
+D_mar = 42.195
+p_riegel = 1.06
+riegel_factor = (D_mar / D_hm) ** p_riegel
+train_info['mf_pred_riegel'] = train_info['mh_ti'] * riegel_factor
+test_info['mf_pred_riegel'] = test_info['mh_ti'] * riegel_factor
+print(f"riegel exponent: p = {p_riegel}")
+print(f"riegel factor: {riegel_factor:.4f}")
+
 # NaN handling
 print("\nNaN HANDLING")
 nan_summary = []
@@ -174,6 +185,37 @@ for name, model_dict in models.items():
         'overfitting': train_r2 - test_r2
     }
 
+# riegel baseline evaluation
+print(f"\nRiegel Baseline (p={p_riegel})")
+mf_pred_riegel_test = test_info['mf_pred_riegel'].values
+mf_actual_test = test_info['mf_ti'].values
+mh_pace_test = test_info['mh_ti'] / 60 / 21.0975
+mf_pace_riegel = mf_pred_riegel_test / 60 / 42.195
+slowdown_riegel = mf_pace_riegel / mh_pace_test
+# calcola R² sullo slowdown (come gli altri modelli)
+slowdown_actual = y_test.values
+test_r2_riegel = r2_score(slowdown_actual, slowdown_riegel)
+test_mae_riegel_slowdown = mean_absolute_error(slowdown_actual, slowdown_riegel)
+test_mae_riegel_minutes = np.mean(np.abs(mf_actual_test - mf_pred_riegel_test)) / 60
+test_mape_riegel = np.mean(np.abs((mf_actual_test - mf_pred_riegel_test) / mf_actual_test)) * 100
+print(f"\nTEST SET:")
+print(f"MAE (slowdown): {test_mae_riegel_slowdown:.4f}")
+print(f"R² (slowdown): {test_r2_riegel:.4f}")
+print(f"MAE (minutes): {test_mae_riegel_minutes:.2f} min")
+print(f"MAPE: {test_mape_riegel:.2f}%")
+results['Riegel Baseline'] = {
+    'test_mae_minutes': test_mae_riegel_minutes,
+    'test_mape': test_mape_riegel,
+    'test_r2': test_r2_riegel,
+    'test_mae': test_mae_riegel_slowdown,
+    'y_test_pred': slowdown_riegel,
+    'train_r2': np.nan,
+    'train_mae': np.nan,
+    'train_rmse': np.nan,
+    'test_rmse': np.nan,
+    'overfitting': np.nan
+}
+
 # model comparison
 print("\nMODEL COMPARISON")
 comparison = []
@@ -183,12 +225,15 @@ for name, res in results.items():
         'test R²': res['test_r2'],
         'test MAE (min)': res['test_mae_minutes'],
         'test MAPE (%)': res['test_mape'],
-        'train R²': res['train_r2'],
-        'overfitting': res['overfitting']
+        'train R²': res.get('train_r2', np.nan),
+        'overfitting': res.get('overfitting', np.nan)
     })
 comparison_df = pd.DataFrame(comparison).sort_values('test R²', ascending=False)
 print("\n" + comparison_df.to_string(index=False))
-best_model_name = comparison_df.iloc[0]['model']
+
+# best model (exclude baseline)
+ml_models_only = comparison_df[~comparison_df['model'].str.contains('Baseline')]
+best_model_name = ml_models_only.iloc[0]['model']
 best_model = models[best_model_name]['model']
 print(f"\nbest model: {best_model_name}")
 print(f"R²: {results[best_model_name]['test_r2']:.4f}")
@@ -291,85 +336,100 @@ if len(subset_no10k) > 0:
 
 # graphs
 print("\nGRAPHS")
-fig = plt.figure(figsize=(16, 12))
-model_names = list(results.keys())
+fig = plt.figure(figsize=(18, 14))
 
-# row 1: actual vs predicted for each model
-for i, name in enumerate(model_names, 1):
+# ordine modelli: RF, Ridge, Linear (poi Riegel solo nelle barre)
+ml_models = ['Random Forest', 'Ridge Regression', 'Linear Regression']
+
+# row 1: actual vs predicted (solo ML models)
+for i, name in enumerate(ml_models, 1):
     ax = plt.subplot(3, 3, i)
     y_pred = results[name]['y_test_pred']
-    ax.scatter(y_test, y_pred, alpha=0.5, s=20, c='steelblue')
+    ax.scatter(y_test, y_pred, alpha=0.6, s=30, c='steelblue', edgecolors='none')
     min_val = 1.0
     max_val = max(y_test.max(), y_pred.max())
-    ax.plot([min_val, max_val], [min_val, max_val], 'r--', lw=2)
-    ax.set_xlabel('actual Slowdown')
-    ax.set_ylabel('predicted Slowdown')
-    ax.set_title(f'{name}\nR²={results[name]["test_r2"]:.4f}')
+    ax.plot([min_val, max_val], [min_val, max_val], 'r--', lw=2.5)
+    ax.set_xlabel('Actual Slowdown', fontsize=10)
+    ax.set_ylabel('Predicted Slowdown', fontsize=10)
+    short_name = name.replace(' Regression', '')
+    ax.set_title(f'{short_name}\nR²={results[name]["test_r2"]:.4f}', fontsize=11, fontweight='bold')
     ax.grid(True, alpha=0.3)
+    ax.tick_params(labelsize=9)
 
-# row 2: residuals for each model
-for i, name in enumerate(model_names, 4):
+# row 2: residuals (solo ML models)
+for i, name in enumerate(ml_models, 4):
     ax = plt.subplot(3, 3, i)
     y_pred = results[name]['y_test_pred']
     residuals = y_test - y_pred
-    ax.scatter(y_pred, residuals, alpha=0.5, s=20, c='coral')
-    ax.axhline(y=0, color='r', linestyle='--', lw=2)
-    ax.set_xlabel('predicted Slowdown')
-    ax.set_ylabel('residuals')
-    ax.set_title(f'{name} - residuals')
+    ax.scatter(y_pred, residuals, alpha=0.6, s=30, c='coral', edgecolors='none')
+    ax.axhline(y=0, color='r', linestyle='--', lw=2.5)
+    ax.set_xlabel('Predicted Slowdown', fontsize=10)
+    ax.set_ylabel('Residuals', fontsize=10)
+    short_name = name.replace(' Regression', '')
+    ax.set_title(f'{short_name} - Residuals', fontsize=11, fontweight='bold')
     ax.grid(True, alpha=0.3)
+    ax.tick_params(labelsize=9)
 
-# row 3: model camparison
+# row 3, col 1: R² comparison (tutti i 4 modelli)
 ax7 = plt.subplot(3, 3, 7)
-r2_vals = [results[m]['test_r2'] for m in model_names]
-colors = ['steelblue', 'coral', 'lightgreen']
-bars = ax7.bar(range(len(model_names)), r2_vals, color=colors, edgecolor='black')
-ax7.set_xticks(range(len(model_names)))
-ax7.set_xticklabels([n.replace(' regression', '').replace('random ', 'R') for n in model_names], 
-                     rotation=0)
-ax7.set_ylabel('R²')
-ax7.set_title('R² comparison Test Set')
-
-# allow negative y values
-y_min = min(0, min(r2_vals))
-y_max = max(r2_vals) * 1.2 if max(r2_vals) > 0 else 0.1
+models_for_bar = ['Random Forest', 'Ridge Regression', 'Linear Regression', 'Riegel Baseline']
+r2_vals = [results[m]['test_r2'] for m in models_for_bar]
+colors_bar = ['lightgreen', 'coral', 'steelblue', 'orange']
+x_pos = range(len(models_for_bar))
+bars = ax7.bar(x_pos, r2_vals, color=colors_bar, edgecolor='black', linewidth=1.5)
+ax7.set_xticks(x_pos)
+short_labels = ['Random\nForest', 'Ridge', 'Linear', 'Riegel']
+ax7.set_xticklabels(short_labels, fontsize=9)
+ax7.set_ylabel('R² Score', fontsize=10)
+ax7.set_title('R² Comparison', fontsize=11, fontweight='bold')
+# limita y-axis per non far dominare riegel
+ml_r2_vals = r2_vals[:3]  # solo ML models
+y_min = min(min(ml_r2_vals), 0) - 0.05
+y_max = max(ml_r2_vals) + 0.05
 ax7.set_ylim([y_min, y_max])
 ax7.grid(True, alpha=0.3, axis='y')
+ax7.tick_params(labelsize=9)
+# aggiungi valori sopra le barre
 for bar, val in zip(bars, r2_vals):
-    ax7.text(bar.get_x() + bar.get_width()/2, bar.get_height() + 0.01,
-             f'{val:.3f}', ha='center', va='bottom', fontsize=10, fontweight='bold')
+    if val >= y_min and val <= y_max:  # solo se dentro range
+        y_pos = val + 0.01 if val > 0 else val - 0.02
+        va = 'bottom' if val > 0 else 'top'
+        ax7.text(bar.get_x() + bar.get_width()/2, y_pos,
+                 f'{val:.3f}', ha='center', va=va, fontsize=9, fontweight='bold')
 
-# error distribution
+# row 3, col 2: MAE comparison (tutti i 4 modelli)
 ax8 = plt.subplot(3, 3, 8)
-ax8.hist(test_info_best['abs_error_minutes'], bins=30, 
-         edgecolor='black', alpha=0.7, color='steelblue')
-ax8.axvline(test_info_best['abs_error_minutes'].mean(), 
-            color='red', linestyle='--', lw=2, 
-            label=f'mean: {test_info_best["abs_error_minutes"].mean():.1f}min')
-ax8.set_xlabel('absolute error (minutes)')
-ax8.set_ylabel('frequency')
-ax8.set_title(f'error distribution\n({best_model_name})')
-ax8.legend()
-ax8.grid(True, alpha=0.3)
+mae_vals = [results[m]['test_mae_minutes'] for m in models_for_bar]
+bars = ax8.bar(x_pos, mae_vals, color=colors_bar, edgecolor='black', linewidth=1.5)
+ax8.set_xticks(x_pos)
+ax8.set_xticklabels(short_labels, fontsize=9)
+ax8.set_ylabel('MAE (minutes)', fontsize=10)
+ax8.set_title('MAE Comparison', fontsize=11, fontweight='bold')
+ax8.grid(True, alpha=0.3, axis='y')
+ax8.tick_params(labelsize=9)
+for bar, val in zip(bars, mae_vals):
+    ax8.text(bar.get_x() + bar.get_width()/2, bar.get_height() + 0.3,
+             f'{val:.1f}', ha='center', va='bottom', fontsize=9, fontweight='bold')
 
-# error vs pace half marathon
+# row 3, col 3: error distribution (best model)
 ax9 = plt.subplot(3, 3, 9)
-colors_sex = ['blue' if g == 0 else 'red' for g in test_info_best['gender']]
-ax9.scatter(test_info_best['mh_pace_minkm'], 
-            test_info_best['abs_error_minutes'],
-            alpha=0.5, s=20, c=colors_sex)
-ax9.set_xlabel('half marathon pace (min/km)')
-ax9.set_ylabel('absolute error (min)')
-ax9.set_title('error vs pace half marathon')
+ax9.hist(test_info_best['abs_error_minutes'], bins=25, 
+         edgecolor='black', alpha=0.75, color='steelblue', linewidth=1)
+mean_error = test_info_best['abs_error_minutes'].mean()
+ax9.axvline(mean_error, color='red', linestyle='--', lw=2.5, 
+            label=f'Mean: {mean_error:.1f}min')
+ax9.set_xlabel('Absolute Error (min)', fontsize=10)
+ax9.set_ylabel('Frequency', fontsize=10)
+ax9.set_title(f'Error Distribution\n({best_model_name})', 
+              fontsize=11, fontweight='bold')
+ax9.legend(fontsize=9, loc='upper right')
 ax9.grid(True, alpha=0.3)
-from matplotlib.patches import Patch
-legend_elements = [Patch(facecolor='blue', label='M'),
-                   Patch(facecolor='red', label='F')]
-ax9.legend(handles=legend_elements)
+ax9.tick_params(labelsize=9)
 
-plt.tight_layout()
-plt.savefig('results/model_results.png', dpi=150, bbox_inches='tight')
+plt.subplots_adjust(hspace=0.40, wspace=0.35)
+plt.savefig('results/model_results.png', dpi=300, bbox_inches='tight')
 print("graph done - model results")
+plt.close(fig)
 
 # feature importance plot
 if hasattr(best_model, 'feature_importances_'):
@@ -423,7 +483,7 @@ if 'Ridge Regression' in models:
 
 # model saving
 print("\nMODEL SAVING")
-with open('best_model/best_model.pkl', 'wb') as f:
+with open('results/best_model/best_model.pkl', 'wb') as f:
     pickle.dump(best_model, f)
 model_info = {
     'model_name': best_model_name,
@@ -438,7 +498,7 @@ model_info = {
         'n_features': X_train.shape[1]
     }
 }
-with open('best_model/model_info.pkl', 'wb') as f:
+with open('results/best_model/model_info.pkl', 'wb') as f:
     pickle.dump(model_info, f)
 test_info_best.to_csv('data/processed_data/test_predictions.csv', index=False)
 

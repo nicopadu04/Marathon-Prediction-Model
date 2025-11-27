@@ -4,7 +4,7 @@ import numpy as np
 from sklearn.model_selection import train_test_split
 
 # load dataset
-df = pd.read_excel('data/dataset_final.xlsx')
+df = pd.read_excel('data/raw/dataset_final.xlsx')
 print("1. PREPARE DATA")
 
 # keep only if has both half marathon, marathon and adjusted data

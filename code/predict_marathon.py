@@ -7,9 +7,9 @@ from datetime import datetime
 print("3. PREDICTOR")
 
 # load model
-with open('best_model/best_model.pkl', 'rb') as f:
+with open('results/best_model/best_model.pkl', 'rb') as f:
     model = pickle.load(f)
-with open('best_model/model_info.pkl', 'rb') as f:
+with open('results/best_model/model_info.pkl', 'rb') as f:
     model_info = pickle.load(f)
 print(f"\nmodel used: {model_info['model_name']}")
 
@@ -133,12 +133,12 @@ has_sprint = 1 if sprint_input == 'y' else 0
 tempo_input = input("\ndo you usually do tempo runs? (y/n): ").strip().lower()
 has_tempo = 1 if tempo_input == 'y' else 0
 
-# Categoria resistenza
+# endurance category
 print("\nendurance category:")
-print("1 = beginner (little experience)")
-print("2 = intermediate (moderate experience)")
-print("3 = advanced (a lot of experience)")
-print("4 = elite (competitive)")
+print("1 = elite (competitive)")
+print("2 = advanced (a lot of experience)")
+print("3 = intermediate (moderate experience)")
+print("4 = beginner (little experience)")
 while True:
     endurancecat = int(input("choose category (1-4): "))
     if 1 <= endurancecat <= 4:
@@ -161,7 +161,7 @@ while True:
         break
     print("choose between 1, 2 or 3")
 
-# features analysis
+# features analysis, derive all engineered features in the same way as training
 print("\nANALYZING YOUR DATA")
 
 # progressive slowdown
@@ -259,7 +259,7 @@ if has_10k and not np.isnan(slowdown_10k_to_hm):
 
 # prediction
 
-# handling missing values (5/10 K) with training set medians
+# handling missing values (5/10 K) with training set medians as in training
 if 'feature_medians' in model_info:
     feature_medians = model_info['feature_medians']
     for col in features.columns:
@@ -269,7 +269,7 @@ if 'feature_medians' in model_info:
 # predict slowdown
 predicted_slowdown = model.predict(features)[0]
 
-# if slowdown < 1.0 
+# the code discards impossible predictions where slowdown < 1.0
 if predicted_slowdown < 1.0:
     print(f"\nthe model predicted a slowdown factor less than 1.0 ({predicted_slowdown:.3f}) which is impossible, please try again with new data")
     exit(1)
@@ -309,7 +309,7 @@ upper_s = int(upper_bound_seconds % 60)
 print(f"\npredicted range (±{model_info['test_mae_minutes']:.1f} min):")
 print(f"{lower_h}h {lower_m}min {lower_s}s  -  {upper_h}h {upper_m}min {upper_s}s")
 
-# prediction quality
+# provide feedback based on how much data the user supplied
 print(f"\nPREDICTION QUALITY:")
 if has_5k and has_10k:
     print(f"excellent, you provided 5K, 10K, and half marathon data")
