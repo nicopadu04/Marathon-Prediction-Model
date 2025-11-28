@@ -20,7 +20,7 @@ df_filtered['k10_pace_minkm'] = (df_filtered['k10_ti'] / 60) / 10.0
 df_filtered['mh_pace_minkm'] = (df_filtered['mh_ti'] / 60) / 21.0975
 df_filtered['mf_pace_minkm'] = (df_filtered['mf_ti'] / 60) / 42.195
 
-# slowdown features
+# slowdown features, to quantify performance drop between distances
 print("\nSLOWDOW FEATURES")
 
 # slowdown form half marathon to marathon
@@ -28,7 +28,7 @@ df_filtered['slowdown_hm_to_marathon'] = df_filtered['mf_pace_minkm'] / df_filte
 print("\nstatistics for slowdown from half marathon to marathon:")
 print(df_filtered['slowdown_hm_to_marathon'].describe())
 
-# keep only if has reasonable slowdown
+# keep only if has reasonable slowdown, to filter out physiologically implausible slowdowns (injury, extreme weather, errors ecc)
 reasonable_slowdown = (
     (df_filtered['slowdown_hm_to_marathon'] >= 1.00) &
     (df_filtered['slowdown_hm_to_marathon'] <= 1.25)
@@ -52,7 +52,7 @@ print(f"max: {df_clean['mf_time_minutes'].max():.2f}")
 print(f"mean: {df_clean['mf_time_minutes'].mean():.2f}")
 print(f"median: {df_clean['mf_time_minutes'].median():.2f}")
 
-# slowdown from 10k/5k to half marathon
+# slowdown from 5k/10k to half marathon, to capture each athlete's typical degradation pattern
 df_clean['has_k5_data'] = df_clean['k5_pace_minkm'].notna().astype(int)
 df_clean['has_k10_data'] = df_clean['k10_pace_minkm'].notna().astype(int)
 print(f"\nhas_k5_data:  {df_clean['has_k5_data'].sum()} ")
@@ -67,24 +67,24 @@ print(df_clean['slowdown_5k_to_hm'].describe())
 # demographic features
 print("\nDEMOGRAPHIC FEATURES")
 
-# gender feature
+# gender feature made dummy to let the model capture sex related patterns
 df_clean['sex_M'] = (df_clean['gender'] == 0).astype(int)
 df_clean['sex_F'] = (df_clean['gender'] == 1).astype(int)
 print(f"\nmale (sex_M): {df_clean['sex_M'].sum()}")
 print(f"female (sex_F): {df_clean['sex_F'].sum()}")
 
-# age feature
+# age feature, same reason as gender
 df_clean['age_input'] = df_clean['age']
 df_clean['age_squared'] = df_clean['age'] ** 2
 print("\nstatistics for age:")
 print(f"{df_clean['age_input'].describe()}")
 
-# BMI ( weight(kg) / (height(m))^2 )
+# BMI ( weight(kg) / (height(m))^2 ) , to understand how body compistion impacts
 df_clean['bmi_input'] = df_clean['bmi']
 print("\nstatistics for BMI:")
 print(f"{df_clean['bmi_input'].describe()}")
 
-# endurance category
+# endurance category to understand running experience level
 df_clean['endurancecat_input'] = df_clean['endurancecat']
 print("\nstatistics for endurance category:")
 print(f"{df_clean['endurancecat_input'].value_counts().sort_index()}")
@@ -92,7 +92,7 @@ print(f"{df_clean['endurancecat_input'].value_counts().sort_index()}")
 # training features
 print("\nTRAINING FEATURES")
 
-# keep only if max >= typical
+# keep only if max >= typical, to prevent inconsistent entries where max is lower than typical
 df_clean['typical_km_week'] = df_clean['typical']
 df_clean['max_km_week'] = df_clean['max']
 n_fixed = (df_clean['max_km_week'] < df_clean['typical_km_week']).sum()
@@ -105,19 +105,19 @@ print(f"\nmax weekly training: {df_clean['max_km_week'].describe()}")
 df_clean['training_volume_ratio'] = df_clean['max_km_week'] / df_clean['typical_km_week'].replace(0, np.nan)
 print(f"\ntraining volume ratio: {df_clean['training_volume_ratio'].describe()}")
 
-# specific training (sprint runs and tempo runs)
+# specific training (sprint runs and tempo runs), to understand if training modalities can have any impact
 df_clean['has_sprint'] = df_clean['sprint'].astype(int)
 df_clean['has_tempo'] = df_clean['tempo'].astype(int)
 print(f"\nsprint runs: {df_clean['has_sprint'].sum()} athletes")
 print(f"tempo: {df_clean['has_tempo'].sum()} athletes")
 
-# transform injury into dummy variable (0=no injury , 1=had injury)
+# transform injury into dummy variable (0=no injury , 1=had injury), to better understand relation between forced stop due to injury and marathon preparation
 df_clean['injury_history'] = (df_clean['injury'] > 1).astype(int)
 print(f"\ndummy injury:")
 print(f"no injury: {(df_clean['injury_history']==0).sum()}")
 print(f"had injury: {(df_clean['injury_history']==1).sum()}")
 
-# footwear
+# footwear, to explore any link between shoe choice and slowdown
 df_clean['footwear_type'] = df_clean['footwear'].astype(int)
 print(f"\nfootwear:")
 print(df_clean['footwear_type'].value_counts().sort_index())
@@ -125,7 +125,7 @@ print(df_clean['footwear_type'].value_counts().sort_index())
 # feature engineering
 print("\nFEATURE ENGINEERING")
 
-# pace ^2 and ^3
+# pace ^2 and ^3, to capture non-linear slowdown effects
 df_clean['k5_pace_squared'] = df_clean['k5_pace_minkm'] ** 2
 df_clean['k10_pace_squared'] = df_clean['k10_pace_minkm'] ** 2
 df_clean['mh_pace_squared'] = df_clean['mh_pace_minkm'] ** 2
@@ -165,7 +165,7 @@ for i, feat in enumerate(feature_columns, 1):
 # split train/test
 print("\nSPLIT TRAIN/TEST")
 
-# split 70/30 (keeping same proportion of male and female)
+# split 70/30 keeping same proportion of male and female so it's comparable between train and test
 train_idx, test_idx = train_test_split(
     df_clean.index,
     test_size=0.30,
