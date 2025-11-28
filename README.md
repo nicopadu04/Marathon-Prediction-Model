@@ -7,6 +7,7 @@ Machine learning system that predicts marathon finish times from half-marathon p
 - `results/` --> best model, visualizations and feature importance plots
 - `AI_USAGE.md` --> brief explanation on how AI was used
 - `main.py` --> main script to run
+- `project_report.pdf` --> final project report
 - `PROPOSAL.md` --> accepted project proposal
 - `README.md` --> project overview, repository structure, instructions and results
 - `requirements.txt` --> list of python dependencies and versions
