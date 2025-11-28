@@ -21,7 +21,7 @@ test_info = pd.read_csv('data/processed_data/test_info.csv')
 with open('data/processed_data/feature_columns.txt', 'r') as f:
     feature_columns = [line.strip() for line in f.readlines()]
 
-# riegel baseline
+# riegel baseline predictions to compare regression models with the classic formula
 print("\nRIEGEL BASELINE")
 D_hm = 21.0975
 D_mar = 42.195
@@ -32,7 +32,7 @@ test_info['mf_pred_riegel'] = test_info['mh_ti'] * riegel_factor
 print(f"riegel exponent: p = {p_riegel}")
 print(f"riegel factor: {riegel_factor:.4f}")
 
-# NaN handling
+# NaN handling, summarize missing values to decide where median imputation is needed
 print("\nNaN HANDLING")
 nan_summary = []
 for col in X_train.columns:
@@ -101,7 +101,7 @@ X_test_rf = pd.DataFrame(
     columns=X_test.columns,
     index=X_test.index
 )
-# gridsearch 
+# gridsearch, to tune random forest hyperparameters
 rf_params = {
     'n_estimators': [100, 150, 200, 250],
     'max_depth': [3, 4, 5, 6, 7],
@@ -185,14 +185,13 @@ for name, model_dict in models.items():
         'overfitting': train_r2 - test_r2
     }
 
-# riegel baseline evaluation
+# riegel baseline valuation on the same slowdown and time metrics for comparison
 print(f"\nRiegel Baseline (p={p_riegel})")
 mf_pred_riegel_test = test_info['mf_pred_riegel'].values
 mf_actual_test = test_info['mf_ti'].values
 mh_pace_test = test_info['mh_ti'] / 60 / 21.0975
 mf_pace_riegel = mf_pred_riegel_test / 60 / 42.195
 slowdown_riegel = mf_pace_riegel / mh_pace_test
-# calcola R² sullo slowdown (come gli altri modelli)
 slowdown_actual = y_test.values
 test_r2_riegel = r2_score(slowdown_actual, slowdown_riegel)
 test_mae_riegel_slowdown = mean_absolute_error(slowdown_actual, slowdown_riegel)
@@ -216,7 +215,7 @@ results['Riegel Baseline'] = {
     'overfitting': np.nan
 }
 
-# model comparison
+# model comparison to visualize ranking
 print("\nMODEL COMPARISON")
 comparison = []
 for name, res in results.items():
@@ -231,7 +230,7 @@ for name, res in results.items():
 comparison_df = pd.DataFrame(comparison).sort_values('test R²', ascending=False)
 print("\n" + comparison_df.to_string(index=False))
 
-# best model (exclude baseline)
+# best model (excluding Riegel baseline)
 ml_models_only = comparison_df[~comparison_df['model'].str.contains('Baseline')]
 best_model_name = ml_models_only.iloc[0]['model']
 best_model = models[best_model_name]['model']
@@ -264,7 +263,7 @@ elif hasattr(best_model, 'coef_'):
     print(importance_df.to_string(index=False))
     importance_df.to_csv('results/model_coefficients.csv', index=False)
 
-# error analysis (for best model)
+# error analysis to understand where the best model is reliable or weak
 print("\nERROR ANALYSIS")
 best_X_test = models[best_model_name]['X_test']
 y_test_pred_best = results[best_model_name]['y_test_pred']
@@ -276,7 +275,7 @@ test_info_best['actual_mf_seconds'] = test_info_best['mf_ti']
 test_info_best['error_seconds'] = test_info_best['predicted_mf_seconds'] - test_info_best['actual_mf_seconds']
 test_info_best['abs_error_minutes'] = abs(test_info_best['error_seconds']) / 60
 
-# sex
+# sex comparison between male and female errors
 print(f"\nfor sex:")
 for sex, label in [(0, 'M'), (1, 'F')]:
     subset = test_info_best[test_info_best['gender'] == sex]
@@ -284,7 +283,7 @@ for sex, label in [(0, 'M'), (1, 'F')]:
         mae = subset['abs_error_minutes'].mean()
         print(f"  {label}: MAE = {mae:.2f} min (n={len(subset)})")
 
-# pace range half marathon
+# pace range half marathon erros
 print(f"\nfor pace range half marathon (min/km):")
 pace_bins = [0, 4.0, 4.5, 5.0, 5.5, 6.0, 100]
 pace_labels = ['<4.0', '4.0-4.5', '4.5-5.0', '5.0-5.5', '5.5-6.0', '6.0+']
@@ -295,7 +294,7 @@ for pace_range in pace_labels:
         mae = subset['abs_error_minutes'].mean()
         print(f"  {pace_range}: MAE = {mae:.2f} min (n={len(subset)})")
 
-# age
+# age groups errors
 print(f"\nfor age:")
 age_bins = [0, 30, 35, 40, 45, 100]
 age_labels = ['<30', '30-35', '35-40', '40-45', '45+']
@@ -306,7 +305,7 @@ for age_range in age_labels:
         mae = subset['abs_error_minutes'].mean()
         print(f"  {age_range}: MAE = {mae:.2f} min (n={len(subset)})")
 
-# training volume
+# training volume errors
 print(f"\nfor training volume:")
 km_bins = [0, 30, 40, 50, 60, 1000]
 km_labels = ['<30km', '30-40km', '40-50km', '50-60km', '60+km']
@@ -317,7 +316,7 @@ for km_range in km_labels:
         mae = subset['abs_error_minutes'].mean()
         print(f"  {km_range}: MAE = {mae:.2f} min (n={len(subset)})")
 
-# 5/10K data available 
+# quantify if 5/10K data availability improves prediction accuracy
 print(f"\nfor 5/10K data available:")
 has_5k_test = best_X_test['has_k5_data']
 has_10k_test = best_X_test['has_k10_data']
@@ -337,11 +336,9 @@ if len(subset_no10k) > 0:
 # graphs
 print("\nGRAPHS")
 fig = plt.figure(figsize=(18, 14))
-
-# ordine modelli: RF, Ridge, Linear (poi Riegel solo nelle barre)
 ml_models = ['Random Forest', 'Ridge Regression', 'Linear Regression']
 
-# row 1: actual vs predicted (solo ML models)
+# row 1: actual vs predicted
 for i, name in enumerate(ml_models, 1):
     ax = plt.subplot(3, 3, i)
     y_pred = results[name]['y_test_pred']
@@ -356,7 +353,7 @@ for i, name in enumerate(ml_models, 1):
     ax.grid(True, alpha=0.3)
     ax.tick_params(labelsize=9)
 
-# row 2: residuals (solo ML models)
+# row 2: residuals 
 for i, name in enumerate(ml_models, 4):
     ax = plt.subplot(3, 3, i)
     y_pred = results[name]['y_test_pred']
@@ -370,7 +367,7 @@ for i, name in enumerate(ml_models, 4):
     ax.grid(True, alpha=0.3)
     ax.tick_params(labelsize=9)
 
-# row 3, col 1: R² comparison (tutti i 4 modelli)
+# row 3, col 1: R² comparison 
 ax7 = plt.subplot(3, 3, 7)
 models_for_bar = ['Random Forest', 'Ridge Regression', 'Linear Regression', 'Riegel Baseline']
 r2_vals = [results[m]['test_r2'] for m in models_for_bar]
@@ -382,22 +379,20 @@ short_labels = ['Random\nForest', 'Ridge', 'Linear', 'Riegel']
 ax7.set_xticklabels(short_labels, fontsize=9)
 ax7.set_ylabel('R² Score', fontsize=10)
 ax7.set_title('R² Comparison', fontsize=11, fontweight='bold')
-# limita y-axis per non far dominare riegel
-ml_r2_vals = r2_vals[:3]  # solo ML models
+ml_r2_vals = r2_vals[:3]
 y_min = min(min(ml_r2_vals), 0) - 0.05
 y_max = max(ml_r2_vals) + 0.05
 ax7.set_ylim([y_min, y_max])
 ax7.grid(True, alpha=0.3, axis='y')
 ax7.tick_params(labelsize=9)
-# aggiungi valori sopra le barre
 for bar, val in zip(bars, r2_vals):
-    if val >= y_min and val <= y_max:  # solo se dentro range
+    if val >= y_min and val <= y_max:  
         y_pos = val + 0.01 if val > 0 else val - 0.02
         va = 'bottom' if val > 0 else 'top'
         ax7.text(bar.get_x() + bar.get_width()/2, y_pos,
                  f'{val:.3f}', ha='center', va=va, fontsize=9, fontweight='bold')
 
-# row 3, col 2: MAE comparison (tutti i 4 modelli)
+# row 3, col 2: MAE comparison 
 ax8 = plt.subplot(3, 3, 8)
 mae_vals = [results[m]['test_mae_minutes'] for m in models_for_bar]
 bars = ax8.bar(x_pos, mae_vals, color=colors_bar, edgecolor='black', linewidth=1.5)
@@ -431,7 +426,7 @@ plt.savefig('results/model_results.png', dpi=300, bbox_inches='tight')
 print("graph done - model results")
 plt.close(fig)
 
-# feature importance plot
+# feature importance plot, to visualize model behavior and make it interpretable
 if hasattr(best_model, 'feature_importances_'):
     fig_feat, ax_feat = plt.subplots(figsize=(10, 8))
     top_features = importance_df.head(15)
@@ -448,7 +443,7 @@ if hasattr(best_model, 'feature_importances_'):
     print("graph done - feature importance")
     plt.close(fig_feat)
 
-# ridge regression learning curve
+# ridge regression learning curve to visualize trades off bias and variance
 if 'Ridge Regression' in models:
     alphas = [0.001, 0.01, 0.1, 1, 10, 100]
     train_scores = []
@@ -481,7 +476,7 @@ if 'Ridge Regression' in models:
     print("graph done - learning curve")
     plt.close(fig_curve)
 
-# model saving
+# saving model
 print("\nMODEL SAVING")
 with open('results/best_model/best_model.pkl', 'wb') as f:
     pickle.dump(best_model, f)
